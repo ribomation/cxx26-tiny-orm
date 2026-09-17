@@ -1,0 +1,45 @@
+# PostgreSQL instance backing the run-time half of the ORM.
+#
+#   docker compose -f docker/docker-compose.yml up -d
+#   docker compose -f docker/docker-compose.yml exec db psql -U orm -d tiny_orm_demo
+#   docker compose -f docker/docker-compose.yml down        # keeps the volume
+#   docker compose -f docker/docker-compose.yml down -v     # wipes the database
+#
+# Credentials are development-only and deliberately trivial.
+# ---------------------------------------------------------------------------
+name: cxx26-tiny-orm
+
+services:
+  db:
+    image: postgres:18-alpine
+    container_name: tiny-orm-db
+    restart: unless-stopped
+    environment:
+      # Created by initdb on first start only; a later start with an existing
+      # volume finds it already there and leaves it alone. The second database,
+      # tiny_orm_demo, comes from initdb/01-create-databases.sql.
+      POSTGRES_DB: tiny_orm_test
+      POSTGRES_USER: orm
+      POSTGRES_PASSWORD: orm
+      # Deterministic collation, so ORDER BY in generated SQL does not depend
+      # on the host locale.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      # NOTE: postgres:18 sets PGDATA=/var/lib/postgresql/18/docker and declares
+      # its VOLUME at /var/lib/postgresql. Mounting the older, widely-copied
+      # /var/lib/postgresql/data path here would persist an empty directory and
+      # silently lose the database on every restart.
+      - pgdata:/var/lib/postgresql
+      # Runs once, when the data directory is first initialised.
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orm -d tiny_orm_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  pgdata:
