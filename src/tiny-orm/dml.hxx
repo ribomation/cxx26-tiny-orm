@@ -323,18 +323,44 @@ namespace tiny_orm {
         }
         params.push_back(std::move(key_param));
         auto const fragment = std::format("UPDATE {} SET {} WHERE {} = ?;",
-                                          detail::mark_id(table_name_of<T>().view()), sets,
+                                          detail::mark_id(table_name_of<T>().view()),
+                                          sets,
                                           detail::mark_id(key.name.view()));
+        return {detail::render(sql, fragment), std::move(params)};
+    }
+
+    /** UPDATE by primary-key value. */
+    template<typename T, typename K>
+    auto update_by_key(K const& pk, T const& obj, dialect const& sql) -> statement {
+        constexpr auto tbl_name = table_name_of<T>().view();
+        constexpr auto pk_name  = detail::primary_key_column<T>().name.view();
+        auto params             = std::vector<param>{};
+        auto assigns            = std::string{};
+        template for (constexpr auto field : detail::members_of<T>()) {
+            constexpr auto col = detail::describe(field);
+            if constexpr (not col.primary_key) {
+                if (not assigns.empty()) assigns += ", ";
+                assigns += std::format("{} = ?", detail::mark_id(col.name.view()));
+                params.push_back(detail::to_param(obj.[: field :]));
+            }
+        }
+        params.push_back(std::move( detail::to_param(pk) ));
+
+        auto const fragment = std::format("UPDATE {} SET {} WHERE {} = ?;",
+                                          detail::mark_id(tbl_name),
+                                          assigns,
+                                          detail::mark_id(pk_name));
         return {detail::render(sql, fragment), std::move(params)};
     }
 
     /** DELETE by primary-key value. */
     template<typename T, typename K>
     auto delete_by_key(K const& k, dialect const& sql) -> statement {
-        constexpr auto key = detail::primary_key_column<T>();
+        constexpr auto tbl = detail::table_name(^^T).view();
+        constexpr auto key = detail::primary_key_column<T>().name.view();
         auto const fragment = std::format("DELETE FROM {} WHERE {} = ?;",
-                                          detail::mark_id(table_name_of<T>().view()),
-                                          detail::mark_id(key.name.view()));
+                                          detail::mark_id(tbl),
+                                          detail::mark_id(key));
         return {detail::render(sql, fragment), {detail::to_param(k)}};
     }
 

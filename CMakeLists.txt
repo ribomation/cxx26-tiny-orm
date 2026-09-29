@@ -77,7 +77,7 @@ endif()
 find_package(SQLite3 QUIET)
 if(SQLite3_FOUND)
     message(STATUS "tiny-orm: SQLite ${SQLite3_VERSION} found -- SQLite backend enabled.")
-    target_link_libraries(tiny-orm INTERFACE SQLite::SQLite3)
+    target_link_libraries(tiny-orm INTERFACE SQLite3::SQLite3)
     target_compile_definitions(tiny-orm INTERFACE TINY_ORM_HAS_SQLITE)
 else()
     tiny_orm_report_missing("libsqlite3" "libsqlite3-dev" "sqlite-devel" "sqlite-dev")
@@ -96,17 +96,43 @@ if(PostgreSQL_FOUND OR SQLite3_FOUND)
 endif()
 
 
+add_executable(simple-account-demo src/simple-account-demo.cxx)
+target_link_libraries(simple-account-demo PRIVATE tiny-orm)
+
+add_executable(simple-psql-demo src/simple-psql-demo.cxx)
+target_link_libraries(simple-psql-demo PRIVATE tiny-orm)
+
+
+# ---------------------------------------------------------------
+# JSON
+# ---------------------------------------------------------------
+include(FetchContent)
+FetchContent_Declare(json
+        GIT_REPOSITORY  https://github.com/nlohmann/json.git
+        GIT_TAG         v3.12.0
+        GIT_SHALLOW     TRUE
+        GIT_PROGRESS    TRUE
+        SYSTEM
+)
+FetchContent_MakeAvailable(json)
+
+
+add_executable(simple-csv-to-psql-demo src/simple-csv-to-psql-demo.cxx)
+target_link_libraries(simple-csv-to-psql-demo PRIVATE
+        tiny-orm nlohmann_json::nlohmann_json)
+
+
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
-include(FetchContent)
 FetchContent_Declare(Catch2
-        GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-        GIT_TAG v3.16.0
-        GIT_SHALLOW TRUE
-        GIT_PROGRESS TRUE)
+        GIT_REPOSITORY  https://github.com/catchorg/Catch2.git
+        GIT_TAG         v3.16.0
+        GIT_SHALLOW     TRUE
+        GIT_PROGRESS    TRUE
+        SYSTEM
+)
 FetchContent_MakeAvailable(Catch2)
-
 enable_testing()
 
 # Unit tests: no database, everything through a recording fake connection.
@@ -145,3 +171,5 @@ if(TINY_ORM_INTEGRATION_SOURCES)
 else()
     message(STATUS "tiny-orm: no backend found -- integration tests will NOT be built.")
 endif()
+
+
